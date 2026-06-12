@@ -1,0 +1,23 @@
+name: old-glory-warehouse
+region: nyc
+services:
+  - name: web
+    environment_slug: node-js
+    github:
+      repo: DVass81/old-glory-warehouse
+      branch: main
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: npm start
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_TIME
+      - key: PORT
+        value: "8080"
+        scope: RUN_TIME

@@ -61,3 +61,24 @@ streamlit_app.py
 Do not use `scripts/generate_icc_seed.py` as the Streamlit entrypoint. That file
 is only a local maintenance script for regenerating the committed seed from an
 Excel workbook.
+
+## Full App Deployment
+
+Use **DigitalOcean App Platform** for the full Next.js app. GoDaddy should be
+used for the domain/DNS after the DigitalOcean app is live.
+
+DigitalOcean setup:
+
+1. Create an App Platform app from the GitHub repository:
+   `DVass81/old-glory-warehouse`
+2. Select branch: `main`
+3. Use the app spec in `.do/app.yaml`, or configure:
+   - Build command: `npm run build`
+   - Run command: `npm start`
+   - HTTP port: `8080`
+4. Deploy the app.
+5. In GoDaddy DNS, point your domain to the DigitalOcean App Platform domain
+   using DigitalOcean's custom domain instructions.
+
+The production server uses DigitalOcean's `PORT` value automatically, while the
+local development app still runs on `http://localhost:3100`.
