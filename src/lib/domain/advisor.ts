@@ -1,7 +1,8 @@
 import { AdvisorInsight } from "@/data/mock/warehouse-data";
 import { recommendFifoPick } from "./fifo";
 import { calculateDashboardMetrics, defaultInventorySnapshot, InventorySnapshot } from "./inventory";
-import { summarizeTariffExposure } from "./tariffs";
+import { deriveJobTariffLedger, summarizeTariffExposure } from "./tariffs";
+import { findDuplicateLocations, getNeedsReviewRows } from "./warehouse-quality";
 
 export type AdvisorInput = {
   snapshot?: InventorySnapshot;
@@ -25,9 +26,12 @@ export function getAdvisorInsights(
   const metrics = calculateDashboardMetrics(snapshot, nowIso);
   const tariffExposure = summarizeTariffExposure(snapshot);
   const insights: AdvisorInsight[] = [];
-  const needsReview = snapshot.inventory.filter((box) => box.reviewStatus === "needsReview" || box.status === "needsReview");
+  const needsReview = getNeedsReviewRows(snapshot);
   const heldOrReserved = snapshot.inventory.filter((box) => box.status === "held" || box.status === "reserved");
-  const duplicateLocations = findDuplicateLocations(snapshot);
+  const duplicateLocations = findDuplicateLocations(snapshot.inventory);
+  const jobLedger = deriveJobTariffLedger(snapshot);
+  const untrackedPulls = snapshot.movements.filter((movement) => movement.tariffTracked === false);
+  const lowStock = findLowStockBySku(snapshot);
 
   if (metrics.fifoRiskCount > 0) {
     const recommendation = recommendFifoPick(
@@ -74,7 +78,7 @@ export function getAdvisorInsights(
         `${needsReview.length} box(es) have missing supplier, origin, FTZ, received, cost, weight, or location fields.`,
         "Use the Inventory edit panel to resolve Needs Review before pulling against jobs."
       ],
-      relatedBoxIds: needsReview.slice(0, 12).map((box) => box.id),
+      relatedBoxIds: needsReview.slice(0, 12).map((row) => row.box.id),
       createdAt: nowIso
     });
   }
@@ -94,19 +98,46 @@ export function getAdvisorInsights(
     });
   }
 
-  if (duplicateLocations.length > 0) {
+  if (duplicateLocations.size > 0) {
     insights.push({
       id: "advisor-duplicate-locations",
       severity: "critical",
       topic: "inventory",
       title: "Duplicate warehouse locations require correction.",
       reasoning: [
-        `${duplicateLocations.length} active location(s) have more than one box assigned.`,
+        `${duplicateLocations.size} active location(s) have more than one box assigned.`,
         "Move or edit one of the boxes so the 3D warehouse and pull menus stay accurate."
       ],
       relatedBoxIds: snapshot.inventory
-        .filter((box) => box.warehouseLocation && duplicateLocations.includes(box.warehouseLocation))
+        .filter((box) => box.warehouseLocation && duplicateLocations.has(box.warehouseLocation))
         .map((box) => box.id),
+      createdAt: nowIso
+    });
+  }
+
+  if (lowStock.length > 0) {
+    insights.push({
+      id: "advisor-low-stock",
+      severity: "warning",
+      topic: "inventory",
+      title: "Some copper sizes are below practical pull coverage.",
+      reasoning: lowStock.slice(0, 3).map((item) => `${item.sku}: ${item.availableWeightLbs.toLocaleString("en-US")} lb available across ${item.boxes} box(es).`),
+      relatedBoxIds: [],
+      createdAt: nowIso
+    });
+  }
+
+  if (untrackedPulls.length > 0) {
+    insights.push({
+      id: "advisor-untracked-tariff-pulls",
+      severity: "warning",
+      topic: "tariff",
+      title: "Some job pulls are not included in tariff tracking.",
+      reasoning: [
+        `${untrackedPulls.length} pull movement(s) were marked Track tariff = No.`,
+        `${jobLedger.length} pull movement(s) are currently included in the job tariff ledger.`
+      ],
+      relatedBoxIds: untrackedPulls.map((movement) => movement.boxId),
       createdAt: nowIso
     });
   }
@@ -149,11 +180,14 @@ export function getAdvisorInsights(
   return insights;
 }
 
-function findDuplicateLocations(snapshot: InventorySnapshot): string[] {
-  const counts = new Map<string, number>();
+function findLowStockBySku(snapshot: InventorySnapshot): Array<{ sku: string; availableWeightLbs: number; boxes: number }> {
+  const bySku = new Map<string, { sku: string; availableWeightLbs: number; boxes: number }>();
   for (const box of snapshot.inventory) {
-    if (box.status === "archived" || !box.warehouseLocation) continue;
-    counts.set(box.warehouseLocation, (counts.get(box.warehouseLocation) ?? 0) + 1);
+    if (box.status !== "available") continue;
+    const current = bySku.get(box.sku) ?? { sku: box.sku, availableWeightLbs: 0, boxes: 0 };
+    current.availableWeightLbs += box.weightLbs;
+    current.boxes += 1;
+    bySku.set(box.sku, current);
   }
-  return [...counts.entries()].filter(([, count]) => count > 1).map(([location]) => location);
+  return [...bySku.values()].filter((item) => item.availableWeightLbs > 0 && item.availableWeightLbs < 1000);
 }

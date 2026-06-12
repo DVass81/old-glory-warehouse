@@ -14,6 +14,8 @@ describe("separate route/page build contract", () => {
       "ftz",
       "inventory",
       "labels",
+      "needs-review",
+      "operations",
       "pull",
       "real-import",
       "receive",

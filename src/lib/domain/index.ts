@@ -7,3 +7,4 @@ export * from "./qr";
 export * from "./reports";
 export * from "./tariffs";
 export * from "./warehouse-options";
+export * from "./warehouse-quality";

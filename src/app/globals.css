@@ -764,6 +764,84 @@ a {
   gap: 16px;
 }
 
+.ops-metric-strip,
+.operations-grid,
+.review-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.ops-metric-strip {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.mini-metric {
+  min-height: 108px;
+}
+
+.operations-grid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.operation-card,
+.review-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.operation-card {
+  min-height: 168px;
+  display: grid;
+  align-content: space-between;
+  gap: 24px;
+  padding: 18px;
+}
+
+.operation-card h3,
+.operation-card p {
+  margin: 0;
+}
+
+.operation-card p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.review-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.review-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.review-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.review-form .action-button {
+  grid-column: 1 / -1;
+}
+
+.empty-review-state {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  color: var(--muted);
+}
+
 .operation-shell {
   display: grid;
   gap: 16px;
@@ -844,6 +922,10 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.8fr);
   gap: 16px;
+}
+
+.guided-pull-list {
+  margin-top: 12px;
 }
 
 .full-width {
@@ -931,6 +1013,27 @@ a {
   gap: 5px;
 }
 
+.tariff-ledger-table {
+  display: grid;
+  gap: 10px;
+}
+
+.tariff-ledger-row {
+  display: grid;
+  grid-template-columns: 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr 0.4fr 0.8fr 0.7fr 0.8fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  font-size: 12px;
+}
+
+.tariff-ledger-row small {
+  grid-column: 1 / -1;
+}
+
 button:disabled,
 .action-button:disabled {
   cursor: not-allowed;
@@ -971,6 +1074,12 @@ button:disabled,
   }
 
   .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ops-metric-strip,
+  .operations-grid,
+  .tariff-ledger-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1039,6 +1148,13 @@ button:disabled,
   }
 
   .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-metric-strip,
+  .operations-grid,
+  .review-form,
+  .tariff-ledger-row {
     grid-template-columns: 1fr;
   }
 

@@ -8,6 +8,7 @@ import {
   FileBarChart,
   Gauge,
   LayoutDashboard,
+  ListChecks,
   Moon,
   PackageSearch,
   Search,
@@ -16,6 +17,7 @@ import {
   Sun,
   Truck,
   UploadCloud,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,9 +25,11 @@ import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/operations", label: "Operations", icon: Workflow },
   { href: "/inventory", label: "Inventory", icon: PackageSearch },
   { href: "/fifo", label: "FIFO", icon: Truck },
   { href: "/ftz", label: "FTZ / Tariffs", icon: ShieldCheck },
+  { href: "/needs-review", label: "Needs Review", icon: ListChecks },
   { href: "/real-import", label: "Real ICC Data Import", icon: UploadCloud },
   { href: "/advisor", label: "Advisor", icon: Sparkles },
   { href: "/reports", label: "Reports", icon: FileBarChart },

@@ -34,6 +34,8 @@ export type JobTariffLedgerRow = {
   tariffRate: number;
   estimatedDutyUsd: number;
   occurredAt: string;
+  actor: string;
+  reason: string;
 };
 
 export function calculateEstimatedDuty(box: InventoryBox): number {
@@ -138,8 +140,8 @@ export function deriveJobTariffLedger(snapshot: InventorySnapshot = defaultInven
       const box = snapshot.inventory.find((item) => item.id === movement.boxId);
       if (!box) return [];
       const pulledWeight = movement.pulledWeightLbs ?? movement.consumedWeightLbs ?? 0;
-      const pricePerLb = box.unitValueUsd || (box.costUsd && box.weightLbs ? box.costUsd / box.weightLbs : 0);
-      const dutiableValueUsd = roundCurrency(pulledWeight * pricePerLb);
+      const pricePerLb = movement.pricePerLbUsd ?? (box.unitValueUsd || (box.costUsd && box.weightLbs ? box.costUsd / box.weightLbs : 0));
+      const dutiableValueUsd = movement.dutiableValueUsd ?? roundCurrency(pulledWeight * pricePerLb);
       return [
         {
           movementId: movement.id,
@@ -155,8 +157,10 @@ export function deriveJobTariffLedger(snapshot: InventorySnapshot = defaultInven
           pricePerLbUsd: roundCurrency(pricePerLb),
           dutiableValueUsd,
           tariffRate: box.tariffRate,
-          estimatedDutyUsd: roundCurrency(dutiableValueUsd * box.tariffRate),
+          estimatedDutyUsd: movement.estimatedDutyUsd ?? roundCurrency(dutiableValueUsd * box.tariffRate),
           occurredAt: movement.occurredAt,
+          actor: movement.actor,
+          reason: movement.reason ?? "Needs Review",
         },
       ];
     });

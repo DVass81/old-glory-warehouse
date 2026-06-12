@@ -537,6 +537,44 @@ describe("Real ICC editable warehouse operations contract", () => {
       })
     );
   });
+
+  it("flags missing business fields and duplicate active locations for review", async () => {
+    const qualityModule = await importModule("./warehouse-quality");
+    const getNeedsReviewRows = getFunction(qualityModule, "getNeedsReviewRows");
+    const snapshot = makeEditableSnapshot();
+    snapshot.inventory[1].warehouseLocation = "A-01-L1";
+    snapshot.inventory[1].supplier = "Needs Review";
+
+    const rows = getNeedsReviewRows(snapshot) as Array<{ box: { id: string }; issues: string[]; locationConflict: boolean }>;
+
+    expect(rows.some((row) => row.box.id === "icc-a-01-l1" && row.locationConflict)).toBe(true);
+    expect(rows.some((row) => row.box.id === "icc-a-01-l2" && row.issues.includes("Missing Supplier"))).toBe(true);
+  });
+
+  it("keeps point-in-time value and job context for tariff-tracked pulls", async () => {
+    const inventoryModule = await importModule("./inventory");
+    const tariffsModule = await importModule("./tariffs");
+    const pullBox = getFunction(inventoryModule, "pullBox");
+    const deriveJobTariffLedger = getFunction(tariffsModule, "deriveJobTariffLedger");
+    const snapshot = makeEditableSnapshot();
+    snapshot.inventory[0].unitValueUsd = 4;
+    snapshot.inventory[0].tariffRate = 0.1;
+
+    const pulled = pullBox(snapshot, {
+      boxId: "icc-a-01-l1",
+      pulledWeightLbs: 500,
+      jobNumber: "JOB-42",
+      tariffTracked: true,
+      actor: "Warehouse User",
+    });
+    const ledger = deriveJobTariffLedger(pulled) as Array<{ jobNumber: string; dutiableValueUsd: number; estimatedDutyUsd: number }>;
+
+    expect(ledger[0]).toEqual(expect.objectContaining({
+      jobNumber: "JOB-42",
+      dutiableValueUsd: 2000,
+      estimatedDutyUsd: 200,
+    }));
+  });
 });
 
 async function importModule(path: string): Promise<Record<string, unknown>> {

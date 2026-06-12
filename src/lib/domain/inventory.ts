@@ -328,6 +328,9 @@ export function pullBox(
           pulledWeightLbs,
           consumedWeightLbs: pulledWeightLbs,
           remainingWeightLbs: updatedBox.weightLbs,
+          pricePerLbUsd: previousBox.unitValueUsd,
+          dutiableValueUsd: roundCurrency(pulledWeightLbs * previousBox.unitValueUsd),
+          estimatedDutyUsd: roundCurrency(pulledWeightLbs * previousBox.unitValueUsd * previousBox.tariffRate),
           previousStatus: previousBox.status,
           newStatus: updatedBox.status,
           previousLocation: previousBox.warehouseLocation,
@@ -544,6 +547,9 @@ function createMovement(
     | "pulledWeightLbs"
     | "consumedWeightLbs"
     | "remainingWeightLbs"
+    | "pricePerLbUsd"
+    | "dutiableValueUsd"
+    | "estimatedDutyUsd"
     | "jobNumber"
     | "tariffTracked"
     | "previousStatus"

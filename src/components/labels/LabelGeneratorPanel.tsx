@@ -14,11 +14,22 @@ export function LabelGeneratorPanel() {
     [snapshot.inventory],
   );
   const [poNumber, setPoNumber] = useState("all");
+  const [supplier, setSupplier] = useState("all");
+  const [part, setPart] = useState("all");
+  const [row, setRow] = useState("all");
+  const [review, setReview] = useState("all");
   const [filter, setFilter] = useState("");
+  const suppliers = useMemo(() => unique(snapshot.inventory.map((box) => box.supplier)), [snapshot.inventory]);
+  const parts = useMemo(() => unique(snapshot.inventory.map((box) => box.partNumber ?? box.copperSize ?? box.sku)), [snapshot.inventory]);
+  const rows = useMemo(() => unique(snapshot.inventory.map((box) => box.row ?? box.warehouseZone?.slice(0, 1))), [snapshot.inventory]);
   const selectedPoNumber = poNumber === "all" || poNumbers.includes(poNumber) ? poNumber : "all";
   const boxesForPo = snapshot.inventory.filter(
     (box) =>
       (selectedPoNumber === "all" || box.poNumber === selectedPoNumber) &&
+      (supplier === "all" || box.supplier === supplier) &&
+      (part === "all" || box.partNumber === part || box.copperSize === part || box.sku === part) &&
+      (row === "all" || box.row === row || box.warehouseZone?.slice(0, 1) === row) &&
+      (review === "all" || (review === "needsReview" ? box.reviewStatus === "needsReview" || box.status === "needsReview" : box.reviewStatus !== "needsReview" && box.status !== "needsReview")) &&
       `${box.boxNumber} ${box.partNumber ?? ""} ${box.copperSize ?? ""} ${box.supplier ?? ""} ${box.poNumber ?? ""} ${box.warehouseLocation ?? ""} ${box.ftzLotId ?? ""}`
         .toLowerCase()
         .includes(filter.trim().toLowerCase()),
@@ -52,6 +63,16 @@ export function LabelGeneratorPanel() {
                   {po}
                 </option>
               ))}
+            </select>
+          </label>
+          <FilterSelect label="Supplier" value={supplier} onChange={setSupplier} options={suppliers} />
+          <FilterSelect label="Part" value={part} onChange={setPart} options={parts} />
+          <FilterSelect label="Row" value={row} onChange={setRow} options={rows} />
+          <label className="filter-pill">
+            <select value={review} onChange={(event) => setReview(event.target.value)} aria-label="Review status">
+              <option value="all">All review states</option>
+              <option value="needsReview">Needs Review</option>
+              <option value="valid">Valid</option>
             </select>
           </label>
           <label className="table-search">
@@ -115,6 +136,35 @@ function formatDate(value: string): string {
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function unique(values: Array<string | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value) && value !== "Needs Review"))).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="filter-pill">
+      <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={label}>
+        <option value="all">All {label.toLowerCase()}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 type LabelBox = ReturnType<typeof useWarehouseData>["snapshot"]["inventory"][number];

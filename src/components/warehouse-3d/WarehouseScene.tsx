@@ -67,7 +67,12 @@ function WarehouseModel({
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.035, 0]} receiveShadow>
         <planeGeometry args={[2.1, 8.7]} />
-        <meshStandardMaterial color="#252d37" />
+        <meshStandardMaterial color="#2b3440" />
+      </mesh>
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.025, 0]} receiveShadow>
+        <planeGeometry args={[0.04, 8.7]} />
+        <meshStandardMaterial color="#cbe4ff" emissive="#244a6b" emissiveIntensity={0.25} />
       </mesh>
 
       {slots.map((slot) => {
@@ -91,8 +96,8 @@ function WarehouseModel({
 
       {warehouseRows.map((row, index) => {
         const isLeft = leftRows.has(row);
-        const z = isLeft ? index * 0.75 - 3.05 : (index - 4) * 0.56 - 1.6;
-        const x = isLeft ? -5.9 : 2.0;
+        const x = isLeft ? index * 0.78 - 5.0 : (index - 4) * 0.54 + 1.35;
+        const z = -3.9;
         return (
           <Text
             key={row}
@@ -109,7 +114,7 @@ function WarehouseModel({
       })}
 
       <Text position={[0, 0.08, -4.15]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.22} color="#cbe4ff">
-        Forklift aisle clearance
+        10 ft forklift aisle clearance
       </Text>
       <Text position={[-3.95, 0.08, 4.1]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.22} color="#f5dfad">
         Left A-D: 12 ft boxes, max L3

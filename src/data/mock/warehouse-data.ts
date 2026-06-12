@@ -96,6 +96,9 @@ export type Movement = {
   pulledWeightLbs?: number;
   consumedWeightLbs?: number;
   remainingWeightLbs?: number;
+  pricePerLbUsd?: number;
+  dutiableValueUsd?: number;
+  estimatedDutyUsd?: number;
   jobNumber?: string;
   tariffTracked?: boolean;
   previousStatus?: InventoryStatus;

@@ -100,17 +100,21 @@ export function CompliancePanels() {
             </div>
             <BadgeCheck size={20} aria-hidden="true" />
           </div>
-          <div className="alert-list tariff-ledger-list">
+          <div className="tariff-ledger-table">
             {jobLedger.slice(0, 8).map((row) => (
-                <div className="alert-item" key={row.movementId}>
-                  <div className="item-row">
-                    <span className="strong">{row.jobNumber}</span>
-                    <span className="status-chip info">{formatMoney(row.estimatedDutyUsd)}</span>
-                  </div>
-                  <span className="muted">
-                    {row.boxNumber} - {row.poNumber} - {row.supplier} - {row.origin} - {row.pulledWeightLbs.toLocaleString()} lb
-                  </span>
-                </div>
+              <div className="tariff-ledger-row" key={row.movementId}>
+                <strong>{row.jobNumber}</strong>
+                <span>{row.boxNumber}</span>
+                <span>{row.poNumber}</span>
+                <span>{row.supplier}</span>
+                <span>{row.origin}</span>
+                <span>{row.ftz}</span>
+                <span>{row.pulledWeightLbs.toLocaleString()} lb</span>
+                <span>{formatMoney(row.pricePerLbUsd)}/lb</span>
+                <span>{formatMoney(row.dutiableValueUsd)}</span>
+                <span className="status-chip info">{formatMoney(row.estimatedDutyUsd)}</span>
+                <small className="muted">{row.actor} | {row.reason}</small>
+              </div>
             ))}
             {jobLedger.length === 0 ? <p className="muted">No job-linked tariff pulls yet. Use the Pull tab and enter a job/order number.</p> : null}
           </div>
