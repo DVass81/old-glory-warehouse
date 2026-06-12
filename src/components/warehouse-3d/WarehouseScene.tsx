@@ -5,6 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { Filter, MousePointer2, PackagePlus, Search } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { calculateInventoryValue, listInventory, storageLocations } from "@/lib/domain";
+import { useWarehouseData } from "@/components/warehouse/WarehouseDataProvider";
 
 type UiBox = ReturnType<typeof listInventory>[number] & {
   partNumber?: string;
@@ -75,7 +76,7 @@ function WarehouseModel({
         return (
           <group key={slot.id} position={[slot.x, slot.y, slot.z]}>
             <mesh castShadow receiveShadow onClick={() => onSelect(slot)}>
-              <boxGeometry args={[slot.lengthFt === 12 ? 1.55 : 0.88, 0.24, 0.42]} />
+              <boxGeometry args={[0.42, 0.24, slot.lengthFt === 12 ? 1.55 : 0.88]} />
               <meshStandardMaterial
                 color={selected ? "#f0b06d" : color}
                 roughness={0.54}
@@ -121,7 +122,8 @@ function WarehouseModel({
 }
 
 export function WarehouseScene() {
-  const inventory = listInventory() as UiBox[];
+  const { snapshot } = useWarehouseData();
+  const inventory = listInventory({}, snapshot) as UiBox[];
   const [search, setSearch] = useState("");
   const [rowFilter, setRowFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -339,9 +341,9 @@ function buildSlots(inventory: UiBox[]): Slot[] {
           row,
           position,
           level,
-          x: isLeft ? positionIndex * 0.78 - 5.0 : positionIndex * 0.54 + 1.35,
+          x: isLeft ? rowIndex * 0.78 - 5.0 : (rowIndex - 4) * 0.54 + 1.35,
           y: levelIndex * 0.28 + 0.13,
-          z: isLeft ? rowIndex * 0.75 - 3.05 : (rowIndex - 4) * 0.56 - 1.6,
+          z: positionIndex * 0.82 - 3.0,
           lengthFt: isLeft ? 12 : 6,
           box: boxesByLocation.get(location),
         };

@@ -3,21 +3,32 @@
 import { PackagePlus, RotateCcw, Save } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { useWarehouseData } from "@/components/warehouse/WarehouseDataProvider";
+import {
+  COPPER_SIZE_OPTIONS,
+  ftzYesNoToStatus,
+  levelsForRow,
+  ORIGIN_OPTIONS,
+  STATUS_OPTIONS,
+  SUPPLIER_OPTIONS,
+  WAREHOUSE_POSITIONS,
+  WAREHOUSE_ROWS,
+} from "@/lib/domain";
 
 const initialForm = {
   partNumber: "",
-  copperSize: "",
-  supplier: "",
+  copperSize: COPPER_SIZE_OPTIONS[0] ?? "",
+  supplier: SUPPLIER_OPTIONS[0],
   poNumber: "",
   boxNumber: "",
   row: "A",
   position: "01",
   level: "1",
   weightLbs: "",
-  countryOfOrigin: "",
-  ftzLotId: "",
+  countryOfOrigin: ORIGIN_OPTIONS[0],
+  ftz: "No",
   htsCode: "",
   costUsd: "",
+  receivedAt: new Date().toISOString().slice(0, 10),
   status: "available",
 };
 
@@ -33,10 +44,15 @@ export function ReceiveCopperPanel() {
   const duplicateLocation = snapshot.inventory.find(
     (box) => box.warehouseLocation === previewLocation && box.status !== "archived",
   );
-  const canSubmit = Number(form.weightLbs) > 0 && form.boxNumber.trim() && form.poNumber.trim();
+  const availableLevels = levelsForRow(form.row);
+  const canSubmit = Number(form.weightLbs) > 0 && form.boxNumber.trim() && form.poNumber.trim() && !duplicateLocation;
 
   function updateField(field: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "row" && !levelsForRow(value).includes(current.level) ? { level: "1" } : {}),
+    }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -52,18 +68,22 @@ export function ReceiveCopperPanel() {
       box: {
         partNumber: form.partNumber.trim() || form.copperSize.trim() || "Needs Review",
         copperSize: form.copperSize.trim() || form.partNumber.trim() || "Needs Review",
-        supplier: form.supplier.trim() || "Needs Review",
+        supplier: form.supplier,
         poNumber: form.poNumber.trim(),
         boxNumber: form.boxNumber.trim(),
         row: form.row.trim().toUpperCase(),
         position: form.position.trim(),
         level: Number(form.level) || 1,
         weightLbs: Number(form.weightLbs),
-        countryOfOrigin: form.countryOfOrigin.trim() || "Needs Review",
-        ftzLotId: form.ftzLotId.trim() || "Needs Review",
+        countryOfOrigin: form.countryOfOrigin,
+        ftzStatus: ftzYesNoToStatus(form.ftz),
+        ftzLotId: form.ftz === "Yes" ? `FTZ-${form.poNumber.trim() || "Needs Review"}` : "No",
         htsCode: form.htsCode.trim() || "Needs Review",
-        costUsd: form.costUsd ? Number(form.costUsd) : null,
-        status: form.status as "available" | "held" | "needsReview",
+        unitValueUsd: Number(form.costUsd) || 0,
+        costUsd: (Number(form.costUsd) || 0) * Number(form.weightLbs),
+        receivedAt: new Date(`${form.receivedAt}T00:00:00.000Z`).toISOString(),
+        dateReceived: form.receivedAt,
+        status: form.status as "available" | "reserved" | "held" | "needsReview",
       },
     });
     setMessage(`${form.boxNumber.trim()} received into ${previewLocation}.`);
@@ -94,23 +114,23 @@ export function ReceiveCopperPanel() {
         <div className="operation-grid receive-grid">
           <TextField label="PO Number" value={form.poNumber} onChange={(value) => updateField("poNumber", value)} />
           <TextField label="Box Number" value={form.boxNumber} onChange={(value) => updateField("boxNumber", value)} />
-          <TextField label="Part Number" value={form.partNumber} onChange={(value) => updateField("partNumber", value)} />
-          <TextField label="Copper Size" value={form.copperSize} onChange={(value) => updateField("copperSize", value)} />
-          <TextField label="Supplier" value={form.supplier} onChange={(value) => updateField("supplier", value)} />
+          <SelectField label="Copper Size" value={form.copperSize} options={COPPER_SIZE_OPTIONS} onChange={(value) => updateField("copperSize", value)} />
+          <SelectField label="Supplier" value={form.supplier} options={SUPPLIER_OPTIONS} onChange={(value) => updateField("supplier", value)} />
           <TextField label="Weight lb" type="number" value={form.weightLbs} onChange={(value) => updateField("weightLbs", value)} />
-          <TextField label="Origin" value={form.countryOfOrigin} onChange={(value) => updateField("countryOfOrigin", value)} />
-          <TextField label="FTZ Lot" value={form.ftzLotId} onChange={(value) => updateField("ftzLotId", value)} />
+          <SelectField label="Origin" value={form.countryOfOrigin} options={ORIGIN_OPTIONS} onChange={(value) => updateField("countryOfOrigin", value)} />
+          <SelectField label="FTZ" value={form.ftz} options={["Yes", "No"]} onChange={(value) => updateField("ftz", value)} />
           <TextField label="HTS Code" value={form.htsCode} onChange={(value) => updateField("htsCode", value)} />
-          <TextField label="Cost USD" type="number" value={form.costUsd} onChange={(value) => updateField("costUsd", value)} />
-          <TextField label="Row" value={form.row} onChange={(value) => updateField("row", value)} />
-          <TextField label="Position" value={form.position} onChange={(value) => updateField("position", value)} />
-          <TextField label="Level" type="number" value={form.level} onChange={(value) => updateField("level", value)} />
+          <TextField label="Price / lb" type="number" value={form.costUsd} onChange={(value) => updateField("costUsd", value)} />
+          <TextField label="Received" type="date" value={form.receivedAt} onChange={(value) => updateField("receivedAt", value)} />
+          <SelectField label="Row" value={form.row} options={WAREHOUSE_ROWS} onChange={(value) => updateField("row", value)} />
+          <SelectField label="Position" value={form.position} options={WAREHOUSE_POSITIONS} onChange={(value) => updateField("position", value)} />
+          <SelectField label="Level" value={form.level} options={availableLevels} onChange={(value) => updateField("level", value)} />
           <label className="field">
             <span>Status</span>
             <select value={form.status} onChange={(event) => updateField("status", event.target.value)}>
-              <option value="available">Available</option>
-              <option value="held">Quality hold</option>
-              <option value="needsReview">Needs review</option>
+              {STATUS_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
             </select>
           </label>
         </div>
@@ -148,12 +168,37 @@ function TextField({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "number";
+  type?: "text" | "number" | "date";
 }) {
   return (
     <label className="field">
       <span>{label}</span>
       <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

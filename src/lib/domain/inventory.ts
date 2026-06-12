@@ -36,6 +36,8 @@ export type WarehouseOperationInput = {
   actor?: string;
   reason?: string;
   occurredAt?: string;
+  jobNumber?: string;
+  tariffTracked?: boolean;
 };
 
 export type ReceiveBoxInput = WarehouseOperationInput & {
@@ -329,7 +331,9 @@ export function pullBox(
           previousStatus: previousBox.status,
           newStatus: updatedBox.status,
           previousLocation: previousBox.warehouseLocation,
-          newLocation: updatedBox.warehouseLocation
+          newLocation: updatedBox.warehouseLocation,
+          jobNumber: input.jobNumber,
+          tariffTracked: input.tariffTracked
         }
       )
     ]
@@ -500,7 +504,7 @@ function normalizeInventoryBox(
     storageSide: isLongRow(row) ? "left12ft" : "right6ft",
     reviewIssues,
     reviewStatus: needsReview ? "needsReview" : "valid",
-    status: needsReview && box.status === "available" ? "needsReview" : box.status
+    status: box.status
   };
 }
 
@@ -540,6 +544,8 @@ function createMovement(
     | "pulledWeightLbs"
     | "consumedWeightLbs"
     | "remainingWeightLbs"
+    | "jobNumber"
+    | "tariffTracked"
     | "previousStatus"
     | "newStatus"
     | "previousLocation"
@@ -648,7 +654,9 @@ function consumeBoxWeight(
           previousStatus: previousBox.status,
           newStatus: updatedBox.status,
           previousLocation: previousBox.warehouseLocation,
-          newLocation: updatedBox.warehouseLocation
+          newLocation: updatedBox.warehouseLocation,
+          jobNumber: input.jobNumber,
+          tariffTracked: input.tariffTracked
         }
       )
     ]

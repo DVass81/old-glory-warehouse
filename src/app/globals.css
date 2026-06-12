@@ -51,6 +51,11 @@ select {
   color: var(--text);
 }
 
+select option {
+  color: #1f252c;
+  background: #ffffff;
+}
+
 a {
   color: inherit;
   text-decoration: none;

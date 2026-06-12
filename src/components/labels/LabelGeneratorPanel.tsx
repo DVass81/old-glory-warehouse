@@ -83,9 +83,15 @@ export function LabelGeneratorPanel() {
                   <span>Location</span>
                   <strong>{box.warehouseLocation ?? "Needs Review"}</strong>
                   <span>FTZ</span>
-                  <strong>{box.ftzLotId ?? box.ftzStatus}</strong>
+                  <strong>{box.ftzStatus !== "domestic" && box.ftzStatus !== "needsReview" ? "Yes" : "No"}</strong>
                   <span>Supplier</span>
                   <strong>{box.supplier ?? "Needs Review"}</strong>
+                  <span>Origin</span>
+                  <strong>{box.countryOfOrigin ?? "Needs Review"}</strong>
+                  <span>Received</span>
+                  <strong>{formatDate(box.receivedAt)}</strong>
+                  <span>Price / lb</span>
+                  <strong>{formatMoney(box.unitValueUsd)}</strong>
                 </div>
                 <code className="label-payload">{payload}</code>
               </article>
@@ -102,6 +108,15 @@ function formatWeight(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
 }
 
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Needs Review" : date.toISOString().slice(0, 10);
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value || 0);
+}
+
 type LabelBox = ReturnType<typeof useWarehouseData>["snapshot"]["inventory"][number];
 
 function downloadLabelsHtml(boxes: LabelBox[]): void {
@@ -109,14 +124,18 @@ function downloadLabelsHtml(boxes: LabelBox[]): void {
   const cards = boxes
     .map((box) => {
       const payload = serializeQrPayload(createInventoryQrPayload(box));
+      const ftz = box.ftzStatus !== "domestic" && box.ftzStatus !== "needsReview" ? "Yes" : "No";
       return `<article class="label">
   <div class="top"><span>PO ${escapeHtml(box.poNumber ?? "Needs Review")}</span><strong>${escapeHtml(box.boxNumber)}</strong></div>
+  <h1>${escapeHtml(box.partNumber ?? box.copperSize ?? box.sku)}</h1>
   <dl>
-    <dt>Part</dt><dd>${escapeHtml(box.partNumber ?? box.copperSize ?? box.sku)}</dd>
     <dt>Supplier</dt><dd>${escapeHtml(box.supplier ?? "Needs Review")}</dd>
+    <dt>Origin</dt><dd>${escapeHtml(box.countryOfOrigin ?? "Needs Review")}</dd>
     <dt>Weight</dt><dd>${formatWeight(box.weightLbs)} lb</dd>
     <dt>Location</dt><dd>${escapeHtml(box.warehouseLocation ?? "Needs Review")}</dd>
-    <dt>FTZ</dt><dd>${escapeHtml(box.ftzLotId ?? box.ftzStatus)}</dd>
+    <dt>FTZ</dt><dd>${ftz}</dd>
+    <dt>Received</dt><dd>${formatDate(box.receivedAt)}</dd>
+    <dt>Price/lb</dt><dd>${formatMoney(box.unitValueUsd)}</dd>
   </dl>
   <code>${escapeHtml(payload)}</code>
 </article>`;
@@ -125,7 +144,7 @@ function downloadLabelsHtml(boxes: LabelBox[]): void {
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Old Glory Labels ${generatedAt}</title>
 <style>
-@page{size:letter;margin:.25in}body{font-family:Arial,sans-serif;margin:0;color:#111}.sheet{display:grid;grid-template-columns:repeat(2,4in);gap:.125in;padding:.125in}.label{width:4in;height:2in;border:1px dashed #999;padding:.12in;box-sizing:border-box;break-inside:avoid}.top{display:flex;justify-content:space-between;gap:.1in;font-size:12px}.top strong{font-size:18px}dl{display:grid;grid-template-columns:.8in 1fr;gap:2px 8px;margin:8px 0;font-size:11px}dt{color:#555}dd{margin:0;font-weight:700}code{display:block;font-size:8px;white-space:normal;overflow-wrap:anywhere}
+@page{size:letter;margin:.25in}body{font-family:Arial,sans-serif;margin:0;color:#111}.sheet{display:grid;grid-template-columns:repeat(2,4in);gap:.125in;padding:.125in}.label{width:4in;height:2in;border:1px dashed #999;padding:.1in;box-sizing:border-box;break-inside:avoid}.top{display:flex;justify-content:space-between;gap:.1in;font-size:11px}.top strong{font-size:16px}h1{font-size:18px;margin:4px 0 6px}dl{display:grid;grid-template-columns:.72in 1fr .72in 1fr;gap:2px 6px;margin:4px 0;font-size:9px}dt{color:#555}dd{margin:0;font-weight:700}code{display:block;font-size:7px;white-space:normal;overflow-wrap:anywhere}
 </style></head><body><main class="sheet">${cards}</main></body></html>`;
   const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
   const anchor = document.createElement("a");

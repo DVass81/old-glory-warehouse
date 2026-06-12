@@ -6,3 +6,4 @@ export * from "./inventory";
 export * from "./qr";
 export * from "./reports";
 export * from "./tariffs";
+export * from "./warehouse-options";

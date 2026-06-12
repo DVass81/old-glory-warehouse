@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import {
   deriveFtzLedger,
+  deriveJobTariffLedger,
   summarizeFtzByStatus,
   summarizeTariffExposure,
 } from "@/lib/domain";
@@ -21,6 +22,7 @@ export function CompliancePanels() {
   const { snapshot } = useWarehouseData();
   const ftzSummary = summarizeFtzByStatus(snapshot);
   const ftzLedger = deriveFtzLedger(snapshot);
+  const jobLedger = deriveJobTariffLedger(snapshot);
   const tariffData = summarizeTariffExposure(snapshot).map((item) => ({
     class: item.countryOfOrigin.slice(0, 3).toUpperCase(),
     estimate: Math.round(item.estimatedDutyUsd),
@@ -93,22 +95,24 @@ export function CompliancePanels() {
         <article className="panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Controls</p>
-              <h3>Release readiness</h3>
+              <p className="eyebrow">Job Tariff Ledger</p>
+              <h3>Tracked pulls by job</h3>
             </div>
             <BadgeCheck size={20} aria-hidden="true" />
           </div>
-          <div className="alert-list">
-            {["Entry package complete", "FIFO trace attached", "Customer release authorized"].map(
-              (label) => (
-                <div className="alert-item" key={label}>
+          <div className="alert-list tariff-ledger-list">
+            {jobLedger.slice(0, 8).map((row) => (
+                <div className="alert-item" key={row.movementId}>
                   <div className="item-row">
-                    <span>{label}</span>
-                    <span className="status-chip good">Ready</span>
+                    <span className="strong">{row.jobNumber}</span>
+                    <span className="status-chip info">{formatMoney(row.estimatedDutyUsd)}</span>
                   </div>
+                  <span className="muted">
+                    {row.boxNumber} - {row.poNumber} - {row.supplier} - {row.origin} - {row.pulledWeightLbs.toLocaleString()} lb
+                  </span>
                 </div>
-              ),
-            )}
+            ))}
+            {jobLedger.length === 0 ? <p className="muted">No job-linked tariff pulls yet. Use the Pull tab and enter a job/order number.</p> : null}
           </div>
         </article>
 

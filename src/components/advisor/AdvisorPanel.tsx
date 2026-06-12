@@ -1,5 +1,8 @@
+"use client";
+
 import { ArrowRight, BrainCircuit, CircleAlert, Lightbulb, Sparkles } from "lucide-react";
 import { getAdvisorInsights } from "@/lib/domain";
+import { useWarehouseData } from "@/components/warehouse/WarehouseDataProvider";
 
 const toneBySeverity: Record<string, string> = {
   warning: "warn",
@@ -8,7 +11,8 @@ const toneBySeverity: Record<string, string> = {
 };
 
 export function AdvisorPanel() {
-  const insights = getAdvisorInsights();
+  const { snapshot } = useWarehouseData();
+  const insights = getAdvisorInsights(snapshot);
 
   return (
     <>
@@ -19,7 +23,7 @@ export function AdvisorPanel() {
         </div>
         <span className="status-chip info">
           <BrainCircuit size={14} aria-hidden="true" />
-          Rule-backed mock
+          Rule-backed live data
         </span>
       </div>
 

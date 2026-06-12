@@ -17,13 +17,15 @@ export function PullCopperPanel() {
   const [selectedId, setSelectedId] = useState(availableBoxes[0]?.id ?? "");
   const [pullWeight, setPullWeight] = useState("");
   const [reason, setReason] = useState("Partial production pull");
+  const [jobNumber, setJobNumber] = useState("");
+  const [tariffTracked, setTariffTracked] = useState("Yes");
   const [message, setMessage] = useState("Select an available box and enter the pull weight.");
 
   const filteredBoxes = availableBoxes.filter((box) => {
     const haystack = `${box.boxNumber} ${box.poNumber ?? ""} ${box.supplier ?? ""} ${box.partNumber ?? ""} ${box.copperSize ?? ""} ${box.warehouseLocation ?? ""}`.toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
   });
-  const selectedBox = availableBoxes.find((box) => box.id === selectedId) ?? filteredBoxes[0];
+  const selectedBox = filteredBoxes.find((box) => box.id === selectedId) ?? filteredBoxes[0];
   const requestedWeight = Number(pullWeight);
   const remainingWeight = selectedBox ? Math.max(0, selectedBox.weightLbs - requestedWeight) : 0;
   const canPull = Boolean(selectedBox) && requestedWeight > 0;
@@ -40,6 +42,8 @@ export function PullCopperPanel() {
         boxId: selectedBox.id,
         pulledWeightLbs: selectedBox.weightLbs,
         actor: "Warehouse User",
+        jobNumber: jobNumber.trim() || "Needs Review",
+        tariffTracked: tariffTracked === "Yes",
         reason: `${reason || "Full depletion pull"}: ${formatWeight(selectedBox.weightLbs)} lb depleted`,
       });
       setMessage(`${selectedBox.boxNumber} depleted and archived; ${selectedBox.warehouseLocation ?? "its location"} is freed.`);
@@ -48,6 +52,8 @@ export function PullCopperPanel() {
         boxId: selectedBox.id,
         pulledWeightLbs: requestedWeight,
         actor: "Warehouse User",
+        jobNumber: jobNumber.trim() || "Needs Review",
+        tariffTracked: tariffTracked === "Yes",
         reason: `${reason || "Partial pull"}: ${formatWeight(requestedWeight)} lb removed`,
       });
       setMessage(`${formatWeight(requestedWeight)} lb pulled from ${selectedBox.boxNumber}; ${formatWeight(remainingWeight)} lb remains.`);
@@ -98,6 +104,17 @@ export function PullCopperPanel() {
             <label className="field wide-field">
               <span>Reason</span>
               <input value={reason} onChange={(event) => setReason(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Job / Order</span>
+              <input value={jobNumber} onChange={(event) => setJobNumber(event.target.value)} placeholder="Job number" />
+            </label>
+            <label className="field">
+              <span>Track tariff</span>
+              <select value={tariffTracked} onChange={(event) => setTariffTracked(event.target.value)}>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
             </label>
           </div>
 

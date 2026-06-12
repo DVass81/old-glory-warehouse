@@ -12,7 +12,18 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { calculateInventoryValue, listInventory } from "@/lib/domain";
+import {
+  COPPER_SIZE_OPTIONS,
+  ftzStatusToYesNo,
+  ftzYesNoToStatus,
+  levelsForRow,
+  listInventory,
+  ORIGIN_OPTIONS,
+  STATUS_OPTIONS,
+  SUPPLIER_OPTIONS,
+  WAREHOUSE_POSITIONS,
+  WAREHOUSE_ROWS,
+} from "@/lib/domain";
 import { useWarehouseData } from "@/components/warehouse/WarehouseDataProvider";
 
 const statusTone: Record<string, string> = {
@@ -37,19 +48,23 @@ type UiInventoryRow = ReturnType<typeof listInventory>[number] & {
   ftzLotId?: string;
   htsCode?: string;
   costUsd?: number;
+  unitValueUsd: number;
+  ftzStatus: ReturnType<typeof listInventory>[number]["ftzStatus"];
+  dateReceived?: string;
   reviewStatus?: string;
   reviewIssues?: string[];
   fifoRank?: number;
 };
 
 export function InventoryTable() {
-  const { snapshot, reserve, hold, release } = useWarehouseData();
+  const { snapshot, reserve, hold, release, update } = useWarehouseData();
   const inventoryRows = listInventory({}, snapshot) as UiInventoryRow[];
   const [search, setSearch] = useState("");
   const [rowFilter, setRowFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ftzFilter, setFtzFilter] = useState("all");
   const [selected, setSelected] = useState<UiInventoryRow | null>(null);
+  const [message, setMessage] = useState("");
 
   const rows = useMemo(
     () => Array.from(new Set(inventoryRows.map((row) => getWarehouseRow(row)).filter(Boolean))).sort(),
@@ -165,10 +180,10 @@ export function InventoryTable() {
               <th>Status</th>
               <th>
                 <span className="panel-title-row">
-                  Age <ArrowUpDown size={13} aria-hidden="true" />
+                  Received <ArrowUpDown size={13} aria-hidden="true" />
                 </span>
               </th>
-              <th>Value</th>
+              <th>Price / lb</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -184,24 +199,25 @@ export function InventoryTable() {
                 <td>{getWarehouseLocation(row)}</td>
                 <td>{labelize(row.ftzStatus)}</td>
                 <td>
-                  <span className={`status-chip ${row.reviewStatus === "needsReview" ? "review" : statusTone[row.status]}`}>
-                    {row.reviewStatus === "needsReview" ? "Needs Review" : labelize(row.status)}
+                  <span className={`status-chip ${statusTone[row.status]}`}>
+                    {row.status === "held" ? "Quality Hold" : labelize(row.status)}
                   </span>
+                  {row.reviewStatus === "needsReview" ? <span className="status-chip review">Needs Review</span> : null}
                 </td>
-                <td>{ageInDays(row.receivedAt)} days</td>
-                <td className="strong">{formatMoney(calculateInventoryValue(row))}</td>
+                <td>{formatDate(row.receivedAt)}</td>
+                <td className="strong">{formatMoney(row.unitValueUsd)}</td>
                 <td>
                   <div className="row-actions">
                     <button className="icon-button compact" type="button" title="Edit box" onClick={() => setSelected(row)}>
                       <Edit3 size={15} aria-hidden="true" />
                     </button>
-                    <button className="action-button compact" type="button" onClick={() => reserve(row.id, { reason: "Reserved from inventory table" })}>
+                    <button className="action-button compact" type="button" onClick={() => applyStatus("reserve", row)}>
                       Reserve
                     </button>
-                    <button className="action-button compact" type="button" onClick={() => hold(row.id, { reason: "Quality hold from inventory table" })}>
+                    <button className="action-button compact" type="button" onClick={() => applyStatus("hold", row)}>
                       Hold
                     </button>
-                    <button className="action-button compact" type="button" onClick={() => release(row.id, { reason: "Released from inventory table" })}>
+                    <button className="action-button compact" type="button" onClick={() => applyStatus("release", row)}>
                       Release
                     </button>
                     <a className="icon-button compact" href="/import" title="Move box">
@@ -222,42 +238,131 @@ export function InventoryTable() {
         </table>
       </div>
 
+      {message ? <div className="detail-drawer"><span className="status-chip good">{message}</span></div> : null}
+
       {selected ? (
-        <div className="detail-drawer" role="dialog" aria-label="Inventory edit panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Edit Box</p>
-              <h3>{selected.boxNumber}</h3>
-            </div>
-            <button className="icon-button compact" type="button" onClick={() => setSelected(null)}>
-              x
-            </button>
-          </div>
-          <div className="detail-grid">
-            <span>Part</span>
-            <strong>{display(selected.partNumber ?? selected.sku)}</strong>
-            <span>Location</span>
-            <strong>{getWarehouseLocation(selected)}</strong>
-            <span>FIFO Rank</span>
-            <strong>{selected.fifoRank ?? "Needs Review"}</strong>
-            <span>Tariff Exposure</span>
-            <strong>{formatMoney(calculateInventoryValue(selected) * selected.tariffRate)}</strong>
-          </div>
-          <div className="filter-row">
-            <a className="action-button" href="/import">
-              <Edit3 size={16} aria-hidden="true" />
-              Edit details
-            </a>
-            <a className="action-button" href="/import">
-              <Move3D size={16} aria-hidden="true" />
-              Move location
-            </a>
-            <a className="action-button primary" href="/import">
-              Change status
-            </a>
-          </div>
-        </div>
+        <InventoryEditDrawer
+          selected={selected}
+          onClose={() => setSelected(null)}
+          onSave={(changes) => {
+            update({
+              boxId: selected.id,
+              actor: "Warehouse User",
+              reason: `Edited ${selected.boxNumber} from inventory table`,
+              changes,
+            });
+            setMessage(`${selected.boxNumber} updated.`);
+            setSelected(null);
+          }}
+        />
       ) : null}
+    </div>
+  );
+
+  function applyStatus(action: "reserve" | "hold" | "release", row: UiInventoryRow): void {
+    const input = { actor: "Warehouse User", reason: `${action} from inventory table` };
+    if (action === "reserve") reserve(row.id, input);
+    if (action === "hold") hold(row.id, input);
+    if (action === "release") release(row.id, input);
+    setMessage(`${row.boxNumber} ${action === "hold" ? "placed on hold" : action === "reserve" ? "reserved" : "released"}.`);
+  }
+}
+
+function InventoryEditDrawer({
+  selected,
+  onClose,
+  onSave,
+}: {
+  selected: UiInventoryRow;
+  onClose: () => void;
+  onSave: (changes: Partial<UiInventoryRow>) => void;
+}) {
+  const [draft, setDraft] = useState({
+    copperSize: selected.copperSize ?? selected.partNumber ?? selected.sku,
+    supplier: selected.supplier === "Needs Review" ? SUPPLIER_OPTIONS[0] : selected.supplier ?? SUPPLIER_OPTIONS[0],
+    poNumber: selected.poNumber ?? "",
+    boxNumber: selected.boxNumber,
+    countryOfOrigin:
+      selected.countryOfOrigin === "Needs Review" ? ORIGIN_OPTIONS[0] : selected.countryOfOrigin ?? ORIGIN_OPTIONS[0],
+    ftz: ftzStatusToYesNo(selected.ftzStatus),
+    receivedAt: isoDate(selected.receivedAt),
+    unitValueUsd: String(selected.unitValueUsd || (selected.costUsd && selected.weightLbs ? selected.costUsd / selected.weightLbs : "")),
+    weightLbs: String(selected.weightLbs),
+    row: getWarehouseRow(selected) || "A",
+    position: String(selected.position ?? "01").padStart(2, "0"),
+    level: String(selected.level ?? "1"),
+    status: selected.status,
+  });
+  const availableLevels = levelsForRow(draft.row);
+
+  function setField(field: keyof typeof draft, value: string): void {
+    setDraft((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "row" && !levelsForRow(value).includes(current.level) ? { level: "1" } : {}),
+    }));
+  }
+
+  return (
+    <div className="detail-drawer" role="dialog" aria-label="Inventory edit panel">
+      <div className="panel-head">
+        <div>
+          <p className="eyebrow">Edit Box</p>
+          <h3>{selected.boxNumber}</h3>
+        </div>
+        <button className="icon-button compact" type="button" onClick={onClose}>
+          x
+        </button>
+      </div>
+      <div className="operation-grid receive-grid">
+        <SelectField label="Part / Copper Size" value={draft.copperSize} options={COPPER_SIZE_OPTIONS} onChange={(value) => setField("copperSize", value)} />
+        <SelectField label="Supplier" value={draft.supplier} options={SUPPLIER_OPTIONS} onChange={(value) => setField("supplier", value)} />
+        <TextField label="PO Number" value={draft.poNumber} onChange={(value) => setField("poNumber", value)} />
+        <TextField label="Box Number" value={draft.boxNumber} onChange={(value) => setField("boxNumber", value)} />
+        <SelectField label="Origin" value={draft.countryOfOrigin} options={ORIGIN_OPTIONS} onChange={(value) => setField("countryOfOrigin", value)} />
+        <SelectField label="FTZ" value={draft.ftz} options={["Yes", "No"]} onChange={(value) => setField("ftz", value)} />
+        <TextField label="Received" type="date" value={draft.receivedAt} onChange={(value) => setField("receivedAt", value)} />
+        <TextField label="Price / lb" type="number" value={draft.unitValueUsd} onChange={(value) => setField("unitValueUsd", value)} />
+        <TextField label="Weight lb" type="number" value={draft.weightLbs} onChange={(value) => setField("weightLbs", value)} />
+        <SelectField label="Row" value={draft.row} options={WAREHOUSE_ROWS} onChange={(value) => setField("row", value)} />
+        <SelectField label="Position" value={draft.position} options={WAREHOUSE_POSITIONS} onChange={(value) => setField("position", value)} />
+        <SelectField label="Level" value={draft.level} options={availableLevels} onChange={(value) => setField("level", value)} />
+        <SelectField label="Status" value={draft.status} options={STATUS_OPTIONS.map((item) => item.value)} onChange={(value) => setField("status", value)} />
+      </div>
+      <div className="filter-row">
+        <button className="action-button" type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="action-button primary"
+          type="button"
+          onClick={() =>
+            onSave({
+              partNumber: draft.copperSize,
+              copperSize: draft.copperSize,
+              sku: draft.copperSize,
+              supplier: draft.supplier,
+              poNumber: draft.poNumber || "Needs Review",
+              boxNumber: draft.boxNumber || "Needs Review",
+              countryOfOrigin: draft.countryOfOrigin,
+              ftzStatus: ftzYesNoToStatus(draft.ftz),
+              ftzLotId: draft.ftz === "Yes" ? selected.ftzLotId || "FTZ-Needs Review" : "No",
+              receivedAt: new Date(`${draft.receivedAt}T00:00:00.000Z`).toISOString(),
+              dateReceived: draft.receivedAt,
+              unitValueUsd: Number(draft.unitValueUsd) || 0,
+              costUsd: (Number(draft.unitValueUsd) || 0) * (Number(draft.weightLbs) || 0),
+              weightLbs: Number(draft.weightLbs) || 0,
+              row: draft.row,
+              position: draft.position,
+              level: Number(draft.level),
+              warehouseLocation: `${draft.row}-${draft.position}-L${draft.level}`,
+              status: draft.status as UiInventoryRow["status"],
+            })
+          }
+        >
+          Save inventory changes
+        </button>
+      </div>
     </div>
   );
 }
@@ -299,10 +404,56 @@ function getWarehouseLocation(row: UiInventoryRow): string {
   return locationRow ? `${locationRow}-${position}-L${level}` : "Needs Review";
 }
 
-function ageInDays(receivedAt: string): number {
-  const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.max(
-    0,
-    Math.floor((new Date("2026-06-12T12:00:00.000Z").getTime() - new Date(receivedAt).getTime()) / msPerDay),
+function TextField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "number" | "date";
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {labelize(option)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function isoDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Needs Review" : date.toISOString().slice(0, 10);
 }

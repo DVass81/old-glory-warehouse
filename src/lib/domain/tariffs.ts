@@ -1,5 +1,6 @@
 import {
   InventoryBox,
+  Movement,
   TariffLedgerEntry
 } from "@/data/mock/warehouse-data";
 import { InventorySnapshot, calculateInventoryValue, defaultInventorySnapshot, roundCurrency } from "./inventory";
@@ -15,6 +16,24 @@ export type TariffExposure = {
   entries: TariffLedgerEntry[];
   totalDutiableValueUsd: number;
   totalEstimatedDutyUsd: number;
+};
+
+export type JobTariffLedgerRow = {
+  movementId: string;
+  jobNumber: string;
+  boxId: string;
+  boxNumber: string;
+  poNumber: string;
+  supplier: string;
+  origin: string;
+  ftz: "Yes" | "No";
+  htsCode: string;
+  pulledWeightLbs: number;
+  pricePerLbUsd: number;
+  dutiableValueUsd: number;
+  tariffRate: number;
+  estimatedDutyUsd: number;
+  occurredAt: string;
 };
 
 export function calculateEstimatedDuty(box: InventoryBox): number {
@@ -110,4 +129,39 @@ export function summarizeTariffExposure(
   }
 
   return [...byCountry.values()].sort((a, b) => b.estimatedDutyUsd - a.estimatedDutyUsd);
+}
+
+export function deriveJobTariffLedger(snapshot: InventorySnapshot = defaultInventorySnapshot): JobTariffLedgerRow[] {
+  return snapshot.movements
+    .filter((movement) => isPullMovement(movement) && movement.tariffTracked !== false)
+    .flatMap((movement) => {
+      const box = snapshot.inventory.find((item) => item.id === movement.boxId);
+      if (!box) return [];
+      const pulledWeight = movement.pulledWeightLbs ?? movement.consumedWeightLbs ?? 0;
+      const pricePerLb = box.unitValueUsd || (box.costUsd && box.weightLbs ? box.costUsd / box.weightLbs : 0);
+      const dutiableValueUsd = roundCurrency(pulledWeight * pricePerLb);
+      return [
+        {
+          movementId: movement.id,
+          jobNumber: movement.jobNumber || "Needs Review",
+          boxId: box.id,
+          boxNumber: box.boxNumber,
+          poNumber: box.poNumber ?? "Needs Review",
+          supplier: box.supplier ?? "Needs Review",
+          origin: box.countryOfOrigin,
+          ftz: box.ftzStatus !== "domestic" && box.ftzStatus !== "needsReview" ? "Yes" as const : "No" as const,
+          htsCode: box.htsCode ?? "Needs Review",
+          pulledWeightLbs: pulledWeight,
+          pricePerLbUsd: roundCurrency(pricePerLb),
+          dutiableValueUsd,
+          tariffRate: box.tariffRate,
+          estimatedDutyUsd: roundCurrency(dutiableValueUsd * box.tariffRate),
+          occurredAt: movement.occurredAt,
+        },
+      ];
+    });
+}
+
+function isPullMovement(movement: Movement): boolean {
+  return movement.type === "consumeBox" || movement.type === "deplete" || movement.type === "pick" || movement.type === "ship";
 }

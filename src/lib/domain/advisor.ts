@@ -25,6 +25,9 @@ export function getAdvisorInsights(
   const metrics = calculateDashboardMetrics(snapshot, nowIso);
   const tariffExposure = summarizeTariffExposure(snapshot);
   const insights: AdvisorInsight[] = [];
+  const needsReview = snapshot.inventory.filter((box) => box.reviewStatus === "needsReview" || box.status === "needsReview");
+  const heldOrReserved = snapshot.inventory.filter((box) => box.status === "held" || box.status === "reserved");
+  const duplicateLocations = findDuplicateLocations(snapshot);
 
   if (metrics.fifoRiskCount > 0) {
     const recommendation = recommendFifoPick(
@@ -57,6 +60,53 @@ export function getAdvisorInsights(
         "Review hold reasons before committing near-term shipments."
       ],
       relatedBoxIds: heldBoxIds,
+      createdAt: nowIso
+    });
+  }
+
+  if (needsReview.length > 0) {
+    insights.push({
+      id: "advisor-needs-review",
+      severity: "warning",
+      topic: "inventory",
+      title: "Inventory records still need operational cleanup.",
+      reasoning: [
+        `${needsReview.length} box(es) have missing supplier, origin, FTZ, received, cost, weight, or location fields.`,
+        "Use the Inventory edit panel to resolve Needs Review before pulling against jobs."
+      ],
+      relatedBoxIds: needsReview.slice(0, 12).map((box) => box.id),
+      createdAt: nowIso
+    });
+  }
+
+  if (heldOrReserved.length > 0) {
+    insights.push({
+      id: "advisor-held-reserved",
+      severity: "info",
+      topic: "movement",
+      title: "Held and reserved boxes should be reviewed before FIFO allocation.",
+      reasoning: [
+        `${heldOrReserved.length} box(es) are not freely available.`,
+        "Release boxes when ready, or keep a reason in the movement audit trail."
+      ],
+      relatedBoxIds: heldOrReserved.map((box) => box.id),
+      createdAt: nowIso
+    });
+  }
+
+  if (duplicateLocations.length > 0) {
+    insights.push({
+      id: "advisor-duplicate-locations",
+      severity: "critical",
+      topic: "inventory",
+      title: "Duplicate warehouse locations require correction.",
+      reasoning: [
+        `${duplicateLocations.length} active location(s) have more than one box assigned.`,
+        "Move or edit one of the boxes so the 3D warehouse and pull menus stay accurate."
+      ],
+      relatedBoxIds: snapshot.inventory
+        .filter((box) => box.warehouseLocation && duplicateLocations.includes(box.warehouseLocation))
+        .map((box) => box.id),
       createdAt: nowIso
     });
   }
@@ -97,4 +147,13 @@ export function getAdvisorInsights(
   }
 
   return insights;
+}
+
+function findDuplicateLocations(snapshot: InventorySnapshot): string[] {
+  const counts = new Map<string, number>();
+  for (const box of snapshot.inventory) {
+    if (box.status === "archived" || !box.warehouseLocation) continue;
+    counts.set(box.warehouseLocation, (counts.get(box.warehouseLocation) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([location]) => location);
 }
