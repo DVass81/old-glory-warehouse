@@ -48,3 +48,16 @@ for inventory, FIFO, FTZ, tariff, movement audit, and Needs Review records.
 
 The Labels page can print or export label sheets from the active inventory by PO
 or across all records, including boxes still marked `Needs Review`.
+
+## Streamlit Cloud
+
+This repository is primarily a Next.js app. If deploying to Streamlit Cloud, set
+the main file to:
+
+```text
+streamlit_app.py
+```
+
+Do not use `scripts/generate_icc_seed.py` as the Streamlit entrypoint. That file
+is only a local maintenance script for regenerating the committed seed from an
+Excel workbook.

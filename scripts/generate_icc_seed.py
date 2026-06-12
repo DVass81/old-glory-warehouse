@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from zipfile import ZipFile
@@ -8,7 +9,8 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = Path(r"C:\Users\Me\Downloads\Copper Layout (2).xlsx")
+SOURCE = Path(os.environ.get("ICC_COPPER_LAYOUT_XLSX", ROOT / "data" / "Copper Layout (2).xlsx"))
+LEGACY_SOURCE = Path(r"C:\Users\Me\Downloads\Copper Layout (2).xlsx")
 TARGET = ROOT / "src" / "data" / "real" / "icc-real-warehouse-seed.ts"
 
 NS = {
@@ -221,7 +223,23 @@ def build_seed(records: list[dict[str, str]]) -> list[dict[str, object]]:
 
 
 def main() -> None:
-    records = read_rows(SOURCE)
+    source = SOURCE if SOURCE.exists() else LEGACY_SOURCE
+    if not source.exists():
+        message = (
+            "Copper Layout spreadsheet was not found. This generator is a local maintenance script, "
+            "not the Streamlit app entrypoint. Use streamlit_app.py on Streamlit Cloud, or set "
+            "ICC_COPPER_LAYOUT_XLSX to a repo-relative spreadsheet path before regenerating the seed."
+        )
+        try:
+            import streamlit as st
+
+            st.error(message)
+            st.code("streamlit_app.py", language="text")
+        except Exception:
+            print(message)
+        return
+
+    records = read_rows(source)
     seed = build_seed(records)
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     content = """import type { InventoryBox } from \"@/data/mock/warehouse-data\";
