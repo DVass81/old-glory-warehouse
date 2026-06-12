@@ -1,0 +1,50 @@
+# Old Glory Warehouse
+
+AI-powered copper inventory, FIFO, FTZ, tariff, labels, exports, and warehouse
+visualization for ICC copper warehouse operations.
+
+## Commands
+
+Double-click `START_OLD_GLORY.bat` to start the app and open it in your browser.
+
+```powershell
+npm install
+npm run dev
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+```
+
+Old Glory Warehouse runs at:
+
+```text
+http://localhost:3100
+```
+
+Port `3000` is intentionally left available for the CBS FieldOps AI app. Use
+`npm run dev:3000` only when you intentionally want Old Glory on port `3000`.
+
+## Real ICC Data
+
+The app now seeds from `Copper Layout (2).xlsx` through
+`src/data/real/icc-real-warehouse-seed.ts`. The Real ICC Data Import screen
+accepts either:
+
+- the real location layout headers: `Part`, `Alloy`, `Row`, `Position`, `Level`, `Weight`
+- the full ICC import template in `public/templates/old-glory-warehouse-import-template.csv`
+
+Missing supplier, PO, FTZ, HTS, country, cost, date, box number, or weight fields
+are marked `Needs Review` instead of being invented.
+
+Use the PO / sticker enrichment upload on the import page when the full
+supplier/PO sticker export is available. It merges by Box ID, Box Number, or
+Warehouse Location without changing warehouse locations.
+
+## Exports And Labels
+
+The Reports page creates real CSV/XLSX downloads from the active browser dataset
+for inventory, FIFO, FTZ, tariff, movement audit, and Needs Review records.
+
+The Labels page can print or export label sheets from the active inventory by PO
+or across all records, including boxes still marked `Needs Review`.
